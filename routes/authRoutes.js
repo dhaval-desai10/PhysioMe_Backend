@@ -1,11 +1,11 @@
 import express from 'express';
-import { 
-  register, 
-  login, 
-  logout, 
-  getProfile, 
+import {
+  register,
+  login,
+  logout,
+  getProfile,
   updateProfile,
-  directAdminLogin 
+  directAdminLogin
 } from '../controllers/authController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 

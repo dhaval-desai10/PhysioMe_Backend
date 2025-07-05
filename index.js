@@ -22,7 +22,8 @@ connectDB();
 
 // Middleware
 const allowedOrigins = [
-  "https://physio-me-frontend.vercel.app"
+  "http://localhost:5173",
+  "https://physio-me-frontend.vercel.app",
 ].filter(Boolean);
 
 app.use(cors({
