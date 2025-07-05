@@ -168,6 +168,7 @@ export const directAdminLogin = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
+        token,
         user: {
           _id: admin._id,
           name: admin.name,
