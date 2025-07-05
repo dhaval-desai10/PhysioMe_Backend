@@ -25,8 +25,8 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:5174',
-  'https://physio-me-npzs.vercel.app',
   'https://physio-me.vercel.app',
+  "https://physio-me-frontend.vercel.app/",
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
