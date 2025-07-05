@@ -124,7 +124,10 @@ export const register = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      data: userDataWithoutPassword
+      data: {
+        token,
+        user: userDataWithoutPassword
+      }
     });
   } catch (error) {
     console.error('Registration error:', error);
