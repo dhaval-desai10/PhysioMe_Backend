@@ -8,7 +8,10 @@ import {
   rejectTherapist,
   getAllTherapists,
   getAllPatients,
-  getPatientDetails
+  getPatientDetails,
+  deleteTherapist,
+  deletePatient,
+  manageUser
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -37,5 +40,14 @@ router.get('/patients', getAllPatients);
 
 // Get single patient details
 router.get('/patients/:id', getPatientDetails);
+
+// Delete therapist
+router.delete('/therapists/:id', deleteTherapist);
+
+// Delete patient
+router.delete('/patients/:id', deletePatient);
+
+// Universal user management route
+router.post('/users/:id/manage', manageUser);
 
 export default router;

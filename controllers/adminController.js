@@ -125,6 +125,60 @@ export const approveTherapist = async (req, res) => {
 // Reject therapist
 export const rejectTherapist = async (req, res) => {
   try {
+    const { reason, permanent } = req.body;
+
+    // Check if this is a delete request
+    if (reason === 'ADMIN_DELETE' && permanent) {
+      // Handle therapist deletion
+      const therapist = await User.findOne({
+        _id: req.params.id,
+        role: 'physiotherapist'
+      });
+
+      if (!therapist) {
+        return res.status(404).json({
+          success: false,
+          message: 'Therapist not found'
+        });
+      }
+
+      // Actually delete the therapist
+      await User.findByIdAndDelete(req.params.id);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Therapist deleted successfully'
+      });
+    }
+
+    // Check if this is a patient delete request
+    if (reason === 'ADMIN_DELETE_PATIENT' && permanent) {
+      // Handle patient deletion
+      const patient = await User.findOne({
+        _id: req.params.id,
+        role: 'patient'
+      });
+
+      if (!patient) {
+        return res.status(404).json({
+          success: false,
+          message: 'Patient not found'
+        });
+      }
+
+      // Delete additional patient data if exists
+      await Patient.findOneAndDelete({ userId: req.params.id });
+
+      // Delete the patient from User collection
+      await User.findByIdAndDelete(req.params.id);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Patient deleted successfully'
+      });
+    }
+
+    // Regular rejection logic for therapists
     const therapist = await User.findOne({
       _id: req.params.id,
       role: 'physiotherapist'
@@ -249,6 +303,127 @@ export const getPatientDetails = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in getPatientDetails:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Delete therapist
+export const deleteTherapist = async (req, res) => {
+  try {
+    const therapist = await User.findOne({
+      _id: req.params.id,
+      role: 'physiotherapist'
+    });
+
+    if (!therapist) {
+      return res.status(404).json({
+        success: false,
+        message: 'Therapist not found'
+      });
+    }
+
+    // Delete the therapist
+    await User.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Therapist deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error in deleteTherapist:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Delete patient
+export const deletePatient = async (req, res) => {
+  try {
+    const patient = await User.findOne({
+      _id: req.params.id,
+      role: 'patient'
+    });
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: 'Patient not found'
+      });
+    }
+
+    // Delete additional patient data if exists
+    await Patient.findOneAndDelete({ userId: req.params.id });
+
+    // Delete the patient from User collection
+    await User.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Patient deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error in deletePatient:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Universal user management (for both therapists and patients)
+export const manageUser = async (req, res) => {
+  try {
+    const { action, reason, permanent } = req.body;
+    const userId = req.params.id;
+
+    // Find user regardless of role
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Handle deletion request
+    if (action === 'DELETE' && permanent) {
+      // Delete additional patient data if it's a patient
+      if (user.role === 'patient') {
+        await Patient.findOneAndDelete({ userId: userId });
+      }
+
+      // Delete the user from User collection
+      await User.findByIdAndDelete(userId);
+
+      return res.status(200).json({
+        success: true,
+        message: `${user.role === 'patient' ? 'Patient' : 'Therapist'} deleted successfully`
+      });
+    }
+
+    // Handle status updates for therapists
+    if (user.role === 'physiotherapist') {
+      if (action === 'APPROVE') {
+        user.status = 'approved';
+      } else if (action === 'REJECT') {
+        user.status = 'rejected';
+      }
+      await user.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `User ${action.toLowerCase()}d successfully`,
+      data: user
+    });
+  } catch (error) {
+    console.error('Error in manageUser:', error);
     res.status(500).json({
       success: false,
       message: error.message
