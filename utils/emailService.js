@@ -5,15 +5,32 @@ dotenv.config();
 
 // Create transporter
 const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: process.env.MAIL_HOST,
-    port: parseInt(process.env.MAIL_PORT),
+  const config = {
+    host: process.env.MAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.MAIL_PORT) || 587,
     secure: process.env.MAIL_SECURE === 'true',
     auth: {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS,
     },
-  });
+    // Add these options for better production reliability
+    tls: {
+      rejectUnauthorized: false
+    }
+  };
+
+  // Log configuration for debugging (without exposing sensitive data)
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('📧 Email Config:', {
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      user: config.auth.user ? 'SET' : 'NOT_SET',
+      pass: config.auth.pass ? 'SET' : 'NOT_SET'
+    });
+  }
+
+  return nodemailer.createTransport(config);
 };
 
 // Send contact form email
@@ -94,16 +111,29 @@ export const sendContactEmail = async (contactData) => {
     };
 
     // Send both emails
+    console.log('📧 Sending contact form emails...');
     await transporter.sendMail(adminMailOptions);
+    console.log('✅ Admin email sent successfully');
+
     await transporter.sendMail(userMailOptions);
+    console.log('✅ User confirmation email sent successfully');
 
     return {
       success: true,
-      message: 'Emails sent successfully',
+      message: 'Contact emails sent successfully',
     };
   } catch (error) {
-    console.error('Email sending error:', error);
-    throw new Error('Failed to send email');
+    console.error('❌ Email sending error:', error.message);
+
+    // Log specific error details for debugging
+    if (error.code) {
+      console.error('Error code:', error.code);
+    }
+    if (error.response) {
+      console.error('SMTP response:', error.response);
+    }
+
+    throw new Error(`Failed to send contact email: ${error.message}`);
   }
 };
 
@@ -483,11 +513,43 @@ export const sendAppointmentStatusUpdateEmails = async (appointmentData) => {
 // Test email connection
 export const testEmailConnection = async () => {
   try {
+    console.log('🔍 Testing email connection...');
     const transporter = createTransporter();
     await transporter.verify();
+    console.log('✅ Email connection verified');
     return { success: true, message: 'Email connection verified' };
   } catch (error) {
-    console.error('Email connection test failed:', error);
+    console.error('❌ Email connection test failed:', error.message);
     return { success: false, message: 'Email connection failed', error: error.message };
+  }
+};
+
+// Test sending a simple email (for debugging)
+export const sendTestEmail = async (toEmail = process.env.MAIL_FROM) => {
+  try {
+    console.log('🔍 Sending test email to:', toEmail);
+    const transporter = createTransporter();
+
+    const testMailOptions = {
+      from: process.env.MAIL_FROM,
+      to: toEmail,
+      subject: '🧪 PhysioMe Email Test',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #3b82f6;">✅ Email Test Successful</h2>
+          <p>This is a test email from PhysioMe backend.</p>
+          <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+          <p><strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}</p>
+          <p>If you received this email, your email configuration is working! 🎉</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(testMailOptions);
+    console.log('✅ Test email sent successfully');
+    return { success: true, message: 'Test email sent successfully', recipient: toEmail };
+  } catch (error) {
+    console.error('❌ Test email failed:', error.message);
+    return { success: false, message: 'Test email failed', error: error.message };
   }
 };
