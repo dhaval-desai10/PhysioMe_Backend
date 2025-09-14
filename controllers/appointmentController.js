@@ -1,12 +1,15 @@
 import Appointment from '../model/Appointment.js';
 import User from '../model/User.js';
 import { bookSlot, unbookSlot, getAvailableSlotsForPatient } from './availabilityController.js';
+import { sendAppointmentBookingEmails, sendAppointmentStatusUpdateEmails } from '../utils/emailService.js';
 
 // Create new appointment
 export const createAppointment = async (req, res) => {
   try {
     console.log('Creating appointment with request body:', req.body);
     console.log('User from token:', req.user);
+    console.log('User ID:', req.user?._id);
+    console.log('User role:', req.user?.role);
 
     const { physiotherapistId, date, time, visitType, type, notes, slotId } = req.body;
 
@@ -83,10 +86,45 @@ export const createAppointment = async (req, res) => {
     });
 
     // Populate patient and therapist details
-    await appointment.populate('patientId', 'name email');
-    await appointment.populate('physiotherapistId', 'name email');
+    await appointment.populate('patientId', 'name email phone');
+    await appointment.populate('physiotherapistId', 'name email phone');
 
     console.log('Appointment created successfully:', appointment._id);
+
+    // Send email notifications to both patient and therapist
+    try {
+      console.log('Attempting to send appointment booking emails...');
+
+      const emailData = {
+        appointment: {
+          _id: appointment._id,
+          type: appointment.type,
+          notes: appointment.notes,
+          status: appointment.status
+        },
+        patient: {
+          name: appointment.patientId.name,
+          email: appointment.patientId.email,
+          phone: appointment.patientId.phone
+        },
+        therapist: {
+          name: appointment.physiotherapistId.name,
+          email: appointment.physiotherapistId.email,
+          phone: appointment.physiotherapistId.phone
+        },
+        appointmentDate: appointment.date,
+        appointmentTime: appointment.time,
+        visitType: appointment.visitType
+      };
+
+      const emailResult = await sendAppointmentBookingEmails(emailData);
+      console.log('✅ Email notifications sent:', emailResult.message);
+
+    } catch (emailError) {
+      console.error('❌ Failed to send email notifications:', emailError.message);
+      // Don't fail the appointment creation if emails fail
+      // Just log the error and continue
+    }
 
     res.status(201).json({
       success: true,
@@ -172,6 +210,43 @@ const createAppointmentFromSlot = async (req, res) => {
     // Book the slot
     await bookSlot(slotId, appointment._id);
 
+    // Populate patient and therapist details for email
+    await appointment.populate('patientId', 'name email phone');
+    await appointment.populate('physiotherapistId', 'name email phone');
+
+    // Send email notifications
+    try {
+      console.log('Sending slot-based appointment booking emails...');
+
+      const emailData = {
+        appointment: {
+          _id: appointment._id,
+          type: appointment.type,
+          notes: appointment.notes,
+          status: appointment.status
+        },
+        patient: {
+          name: appointment.patientId.name,
+          email: appointment.patientId.email,
+          phone: appointment.patientId.phone
+        },
+        therapist: {
+          name: appointment.physiotherapistId.name,
+          email: appointment.physiotherapistId.email,
+          phone: appointment.physiotherapistId.phone
+        },
+        appointmentDate: appointment.date,
+        appointmentTime: appointment.time,
+        visitType: appointment.visitType
+      };
+
+      await sendAppointmentBookingEmails(emailData);
+      console.log('✅ Slot-based appointment email notifications sent successfully');
+
+    } catch (emailError) {
+      console.error('❌ Failed to send slot-based appointment email notifications:', emailError.message);
+    }
+
     res.status(201).json({
       success: true,
       data: appointment
@@ -253,24 +328,63 @@ export const getAppointmentById = async (req, res) => {
 // Update appointment status
 export const updateAppointmentStatus = async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.id);
+    const appointment = await Appointment.findById(req.params.id)
+      .populate('patientId', 'name email phone')
+      .populate('physiotherapistId', 'name email phone');
+
     if (!appointment) {
       return res.status(404).json({ message: 'Appointment not found' });
     }
 
     // Only physiotherapist can update status
     if (req.user.role !== 'physiotherapist' ||
-      appointment.physiotherapistId.toString() !== req.user._id.toString()) {
+      appointment.physiotherapistId._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to update this appointment' });
     }
 
     const { status } = req.body;
+    const previousStatus = appointment.status;
+
     appointment.status = status;
     await appointment.save();
 
+    // Send email notification to patient about status change
+    try {
+      console.log(`Sending status update email: ${previousStatus} -> ${status}`);
+
+      const emailData = {
+        appointment: {
+          _id: appointment._id,
+          type: appointment.type,
+          notes: appointment.notes,
+          status: appointment.status
+        },
+        patient: {
+          name: appointment.patientId.name,
+          email: appointment.patientId.email,
+          phone: appointment.patientId.phone
+        },
+        therapist: {
+          name: appointment.physiotherapistId.name,
+          email: appointment.physiotherapistId.email,
+          phone: appointment.physiotherapistId.phone
+        },
+        appointmentDate: appointment.date,
+        appointmentTime: appointment.time,
+        visitType: appointment.visitType,
+        status: status,
+        previousStatus: previousStatus
+      };
+
+      await sendAppointmentStatusUpdateEmails(emailData);
+      console.log('✅ Status update email notification sent successfully');
+
+    } catch (emailError) {
+      console.error('❌ Failed to send status update email:', emailError.message);
+    }
+
     // Get patient details for logging
-    const patient = await User.findById(appointment.patientId);
-    console.log('Appointment status updated for patient:', patient.name);
+    console.log('Appointment status updated for patient:', appointment.patientId.name);
 
     res.status(200).json({
       success: true,
@@ -476,7 +590,9 @@ export const updateAppointmentStatusByTherapist = async (req, res) => {
     const appointment = await Appointment.findOne({
       _id: appointmentId,
       physiotherapistId: therapistId
-    }).populate('patientId', 'name email');
+    })
+      .populate('patientId', 'name email phone')
+      .populate('physiotherapistId', 'name email phone');
 
     if (!appointment) {
       return res.status(404).json({
@@ -484,6 +600,8 @@ export const updateAppointmentStatusByTherapist = async (req, res) => {
         message: 'Appointment not found'
       });
     }
+
+    const previousStatus = appointment.status;
 
     // Update the appointment
     appointment.status = status;
@@ -506,6 +624,41 @@ export const updateAppointmentStatusByTherapist = async (req, res) => {
     }
 
     await appointment.save();
+
+    // Send email notification about status change
+    try {
+      console.log(`Sending status update email by therapist: ${previousStatus} -> ${status}`);
+
+      const emailData = {
+        appointment: {
+          _id: appointment._id,
+          type: appointment.type,
+          notes: appointment.notes,
+          status: appointment.status
+        },
+        patient: {
+          name: appointment.patientId.name,
+          email: appointment.patientId.email,
+          phone: appointment.patientId.phone
+        },
+        therapist: {
+          name: appointment.physiotherapistId.name,
+          email: appointment.physiotherapistId.email,
+          phone: appointment.physiotherapistId.phone
+        },
+        appointmentDate: appointment.date,
+        appointmentTime: appointment.time,
+        visitType: appointment.visitType,
+        status: status,
+        previousStatus: previousStatus
+      };
+
+      await sendAppointmentStatusUpdateEmails(emailData);
+      console.log('✅ Therapist status update email notification sent successfully');
+
+    } catch (emailError) {
+      console.error('❌ Failed to send therapist status update email:', emailError.message);
+    }
 
     console.log('Appointment status updated:', status);
 

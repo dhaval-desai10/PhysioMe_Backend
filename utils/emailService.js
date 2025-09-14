@@ -5,30 +5,30 @@ dotenv.config();
 
 // Create transporter
 const createTransporter = () => {
-    return nodemailer.createTransport({
-        host: process.env.MAIL_HOST,
-        port: parseInt(process.env.MAIL_PORT),
-        secure: process.env.MAIL_SECURE === 'true',
-        auth: {
-            user: process.env.MAIL_USER,
-            pass: process.env.MAIL_PASS,
-        },
-    });
+  return nodemailer.createTransport({
+    host: process.env.MAIL_HOST,
+    port: parseInt(process.env.MAIL_PORT),
+    secure: process.env.MAIL_SECURE === 'true',
+    auth: {
+      user: process.env.MAIL_USER,
+      pass: process.env.MAIL_PASS,
+    },
+  });
 };
 
 // Send contact form email
 export const sendContactEmail = async (contactData) => {
-    try {
-        const transporter = createTransporter();
+  try {
+    const transporter = createTransporter();
 
-        const { firstName, lastName, email, phone, subject, message } = contactData;
+    const { firstName, lastName, email, phone, subject, message } = contactData;
 
-        // Email to admin/support
-        const adminMailOptions = {
-            from: process.env.MAIL_FROM,
-            to: process.env.MAIL_FROM, // Send to the admin email
-            subject: `Contact Form: ${subject}`,
-            html: `
+    // Email to admin/support
+    const adminMailOptions = {
+      from: process.env.MAIL_FROM,
+      to: process.env.MAIL_FROM, // Send to the admin email
+      subject: `Contact Form: ${subject}`,
+      html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">
             New Contact Form Submission
@@ -54,14 +54,14 @@ export const sendContactEmail = async (contactData) => {
           </div>
         </div>
       `,
-        };
+    };
 
-        // Confirmation email to user
-        const userMailOptions = {
-            from: process.env.MAIL_FROM,
-            to: email,
-            subject: 'Thank you for contacting PhysioMe',
-            html: `
+    // Confirmation email to user
+    const userMailOptions = {
+      from: process.env.MAIL_FROM,
+      to: email,
+      subject: 'Thank you for contacting PhysioMe',
+      html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">
             Thank you for contacting us!
@@ -91,30 +91,403 @@ export const sendContactEmail = async (contactData) => {
           </div>
         </div>
       `,
-        };
+    };
 
-        // Send both emails
-        await transporter.sendMail(adminMailOptions);
-        await transporter.sendMail(userMailOptions);
+    // Send both emails
+    await transporter.sendMail(adminMailOptions);
+    await transporter.sendMail(userMailOptions);
 
-        return {
-            success: true,
-            message: 'Emails sent successfully',
-        };
-    } catch (error) {
-        console.error('Email sending error:', error);
-        throw new Error('Failed to send email');
-    }
+    return {
+      success: true,
+      message: 'Emails sent successfully',
+    };
+  } catch (error) {
+    console.error('Email sending error:', error);
+    throw new Error('Failed to send email');
+  }
+};
+
+// Send appointment booking confirmation emails
+export const sendAppointmentBookingEmails = async (appointmentData) => {
+  try {
+    const transporter = createTransporter();
+
+    const {
+      appointment,
+      patient,
+      therapist,
+      appointmentDate,
+      appointmentTime,
+      visitType
+    } = appointmentData;
+
+    // Format date for display
+    const formattedDate = new Date(appointmentDate).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // Email to Patient
+    const patientMailOptions = {
+      from: process.env.MAIL_FROM,
+      to: patient.email,
+      subject: 'Appointment Booking Confirmation - PhysioMe',
+      html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8fafc; padding: 20px; border-radius: 10px;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <h1 style="color: #3b82f6; margin: 0; font-size: 28px;">PhysioMe</h1>
+                        <p style="color: #64748b; margin: 5px 0;">Your Health, Our Priority</p>
+                    </div>
+                    
+                    <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <h2 style="color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px; margin-top: 0;">
+                            ✅ Appointment Booked Successfully!
+                        </h2>
+                        
+                        <p style="font-size: 16px; color: #374151; margin-bottom: 25px;">
+                            Dear <strong>${patient.name}</strong>,
+                        </p>
+                        
+                        <p style="font-size: 16px; color: #374151; line-height: 1.6; margin-bottom: 25px;">
+                            Your appointment has been successfully booked with PhysioMe. Here are your appointment details:
+                        </p>
+                        
+                        <div style="background-color: #f0f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; margin: 25px 0;">
+                            <h3 style="color: #1e293b; margin-top: 0; margin-bottom: 15px;">📅 Appointment Details</h3>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Therapist:</td>
+                                    <td style="padding: 8px 0; color: #1e293b;">${therapist.name}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Date:</td>
+                                    <td style="padding: 8px 0; color: #1e293b;">${formattedDate}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Time:</td>
+                                    <td style="padding: 8px 0; color: #1e293b;">${appointmentTime}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Visit Type:</td>
+                                    <td style="padding: 8px 0; color: #1e293b;">${visitType === 'home' ? 'Home Visit' : 'Clinic Visit'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Status:</td>
+                                    <td style="padding: 8px 0; color: #f59e0b; font-weight: bold;">Pending Confirmation</td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        ${appointment.notes ? `
+                        <div style="background-color: #fefce8; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                            <h4 style="color: #92400e; margin-top: 0; margin-bottom: 10px;">📝 Additional Notes:</h4>
+                            <p style="color: #92400e; margin: 0; line-height: 1.5;">${appointment.notes}</p>
+                        </div>
+                        ` : ''}
+                        
+                        <div style="background-color: #ecfdf5; padding: 20px; border-radius: 8px; margin: 25px 0;">
+                            <h3 style="color: #065f46; margin-top: 0; margin-bottom: 15px;">📋 What's Next?</h3>
+                            <ul style="color: #065f46; line-height: 1.8; padding-left: 20px;">
+                                <li>Your therapist will confirm your appointment within 24 hours</li>
+                                <li>You'll receive a confirmation email once approved</li>
+                                <li>Please arrive 10 minutes early for your appointment</li>
+                                <li>Bring any relevant medical documents or reports</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="text-align: center; margin: 30px 0;">
+                            <p style="color: #64748b; margin-bottom: 15px;">Need to reschedule or have questions?</p>
+                            <a href="mailto:${process.env.MAIL_FROM}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold;">Contact Support</a>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 20px; color: #64748b; font-size: 14px;">
+                        <p>This is an automated email from PhysioMe. Please do not reply directly to this email.</p>
+                        <p>© 2025 PhysioMe. All rights reserved.</p>
+                    </div>
+                </div>
+            `,
+    };
+
+    // Email to Therapist
+    const therapistMailOptions = {
+      from: process.env.MAIL_FROM,
+      to: therapist.email,
+      subject: 'New Appointment Booking - Action Required',
+      html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8fafc; padding: 20px; border-radius: 10px;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <h1 style="color: #3b82f6; margin: 0; font-size: 28px;">PhysioMe</h1>
+                        <p style="color: #64748b; margin: 5px 0;">Professional Physiotherapy Platform</p>
+                    </div>
+                    
+                    <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <h2 style="color: #f59e0b; border-bottom: 2px solid #f59e0b; padding-bottom: 10px; margin-top: 0;">
+                            🔔 New Appointment Request
+                        </h2>
+                        
+                        <p style="font-size: 16px; color: #374151; margin-bottom: 25px;">
+                            Dear <strong>Dr. ${therapist.name}</strong>,
+                        </p>
+                        
+                        <p style="font-size: 16px; color: #374151; line-height: 1.6; margin-bottom: 25px;">
+                            You have received a new appointment booking request. Please review and confirm the appointment details below:
+                        </p>
+                        
+                        <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; border-left: 4px solid #f59e0b; margin: 25px 0;">
+                            <h3 style="color: #92400e; margin-top: 0; margin-bottom: 15px;">👤 Patient Information</h3>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="padding: 8px 0; color: #92400e; font-weight: bold;">Patient Name:</td>
+                                    <td style="padding: 8px 0; color: #451a03;">${patient.name}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #92400e; font-weight: bold;">Email:</td>
+                                    <td style="padding: 8px 0; color: #451a03;">${patient.email}</td>
+                                </tr>
+                                ${patient.phone ? `
+                                <tr>
+                                    <td style="padding: 8px 0; color: #92400e; font-weight: bold;">Phone:</td>
+                                    <td style="padding: 8px 0; color: #451a03;">${patient.phone}</td>
+                                </tr>
+                                ` : ''}
+                            </table>
+                        </div>
+                        
+                        <div style="background-color: #f0f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; margin: 25px 0;">
+                            <h3 style="color: #1e293b; margin-top: 0; margin-bottom: 15px;">📅 Appointment Details</h3>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Date:</td>
+                                    <td style="padding: 8px 0; color: #1e293b;">${formattedDate}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Time:</td>
+                                    <td style="padding: 8px 0; color: #1e293b;">${appointmentTime}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Visit Type:</td>
+                                    <td style="padding: 8px 0; color: #1e293b;">${visitType === 'home' ? 'Home Visit' : 'Clinic Visit'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Appointment Type:</td>
+                                    <td style="padding: 8px 0; color: #1e293b;">${appointment.type || 'Initial Consultation'}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        ${appointment.notes ? `
+                        <div style="background-color: #fefce8; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                            <h4 style="color: #92400e; margin-top: 0; margin-bottom: 10px;">📝 Patient Notes:</h4>
+                            <p style="color: #92400e; margin: 0; line-height: 1.5;">${appointment.notes}</p>
+                        </div>
+                        ` : ''}
+                        
+                        <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 25px 0;">
+                            <h3 style="color: #dc2626; margin-top: 0; margin-bottom: 15px;">⏰ Action Required</h3>
+                            <p style="color: #dc2626; line-height: 1.6; margin-bottom: 15px;">
+                                Please log in to your dashboard to confirm or modify this appointment. The patient is waiting for your confirmation.
+                            </p>
+                            <ul style="color: #dc2626; line-height: 1.8; padding-left: 20px;">
+                                <li>Review the appointment details carefully</li>
+                                <li>Confirm availability for the requested time slot</li>
+                                <li>Update appointment status (Confirm/Reschedule)</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/therapist/appointments" 
+                               style="display: inline-block; background-color: #10b981; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-right: 10px;">
+                                Manage Appointments
+                            </a>
+                            <a href="mailto:${patient.email}" 
+                               style="display: inline-block; background-color: #6b7280; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                                Contact Patient
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 20px; color: #64748b; font-size: 14px;">
+                        <p>This is an automated notification from PhysioMe.</p>
+                        <p>© 2025 PhysioMe. All rights reserved.</p>
+                    </div>
+                </div>
+            `,
+    };
+
+    // Send both emails
+    console.log('Sending appointment booking emails...');
+    console.log('Patient email:', patient.email);
+    console.log('Therapist email:', therapist.email);
+
+    await transporter.sendMail(patientMailOptions);
+    console.log('✅ Patient notification email sent successfully');
+
+    await transporter.sendMail(therapistMailOptions);
+    console.log('✅ Therapist notification email sent successfully');
+
+    return {
+      success: true,
+      message: 'Appointment booking emails sent successfully',
+      recipients: [patient.email, therapist.email]
+    };
+  } catch (error) {
+    console.error('❌ Error sending appointment booking emails:', error);
+    throw new Error(`Failed to send appointment booking emails: ${error.message}`);
+  }
+};
+
+// Send appointment status update emails
+export const sendAppointmentStatusUpdateEmails = async (appointmentData) => {
+  try {
+    const transporter = createTransporter();
+
+    const {
+      appointment,
+      patient,
+      therapist,
+      appointmentDate,
+      appointmentTime,
+      visitType,
+      status,
+      previousStatus
+    } = appointmentData;
+
+    // Format date for display
+    const formattedDate = new Date(appointmentDate).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // Get status display info
+    const getStatusInfo = (status) => {
+      switch (status) {
+        case 'confirmed':
+          return { color: '#10b981', icon: '✅', text: 'Confirmed' };
+        case 'cancelled':
+          return { color: '#ef4444', icon: '❌', text: 'Cancelled' };
+        case 'completed':
+          return { color: '#3b82f6', icon: '🏁', text: 'Completed' };
+        case 'pending':
+          return { color: '#f59e0b', icon: '⏳', text: 'Pending' };
+        default:
+          return { color: '#64748b', icon: '📋', text: status };
+      }
+    };
+
+    const statusInfo = getStatusInfo(status);
+
+    // Email to Patient
+    const patientMailOptions = {
+      from: process.env.MAIL_FROM,
+      to: patient.email,
+      subject: `Appointment ${statusInfo.text} - PhysioMe`,
+      html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8fafc; padding: 20px; border-radius: 10px;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <h1 style="color: #3b82f6; margin: 0; font-size: 28px;">PhysioMe</h1>
+                        <p style="color: #64748b; margin: 5px 0;">Your Health, Our Priority</p>
+                    </div>
+                    
+                    <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <h2 style="color: ${statusInfo.color}; border-bottom: 2px solid ${statusInfo.color}; padding-bottom: 10px; margin-top: 0;">
+                            ${statusInfo.icon} Appointment ${statusInfo.text}
+                        </h2>
+                        
+                        <p style="font-size: 16px; color: #374151; margin-bottom: 25px;">
+                            Dear <strong>${patient.name}</strong>,
+                        </p>
+                        
+                        <p style="font-size: 16px; color: #374151; line-height: 1.6; margin-bottom: 25px;">
+                            Your appointment status has been updated. Here are the current details:
+                        </p>
+                        
+                        <div style="background-color: #f0f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; margin: 25px 0;">
+                            <h3 style="color: #1e293b; margin-top: 0; margin-bottom: 15px;">📅 Appointment Details</h3>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Therapist:</td>
+                                    <td style="padding: 8px 0; color: #1e293b;">${therapist.name}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Date:</td>
+                                    <td style="padding: 8px 0; color: #1e293b;">${formattedDate}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Time:</td>
+                                    <td style="padding: 8px 0; color: #1e293b;">${appointmentTime}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Visit Type:</td>
+                                    <td style="padding: 8px 0; color: #1e293b;">${visitType === 'home' ? 'Home Visit' : 'Clinic Visit'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #64748b; font-weight: bold;">Status:</td>
+                                    <td style="padding: 8px 0; color: ${statusInfo.color}; font-weight: bold;">${statusInfo.icon} ${statusInfo.text}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        ${status === 'confirmed' ? `
+                        <div style="background-color: #ecfdf5; padding: 20px; border-radius: 8px; margin: 25px 0;">
+                            <h3 style="color: #065f46; margin-top: 0; margin-bottom: 15px;">🎉 Great News!</h3>
+                            <p style="color: #065f46; line-height: 1.6;">
+                                Your appointment has been confirmed by ${therapist.name}. Please arrive 10 minutes early and bring any relevant medical documents.
+                            </p>
+                        </div>
+                        ` : ''}
+                        
+                        ${status === 'cancelled' ? `
+                        <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 25px 0;">
+                            <h3 style="color: #dc2626; margin-top: 0; margin-bottom: 15px;">⚠️ Appointment Cancelled</h3>
+                            <p style="color: #dc2626; line-height: 1.6;">
+                                Unfortunately, this appointment has been cancelled. Please contact us to reschedule or if you have any questions.
+                            </p>
+                        </div>
+                        ` : ''}
+                        
+                        <div style="text-align: center; margin: 30px 0;">
+                            <p style="color: #64748b; margin-bottom: 15px;">Need assistance or have questions?</p>
+                            <a href="mailto:${process.env.MAIL_FROM}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold;">Contact Support</a>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 20px; color: #64748b; font-size: 14px;">
+                        <p>This is an automated notification from PhysioMe.</p>
+                        <p>© 2025 PhysioMe. All rights reserved.</p>
+                    </div>
+                </div>
+            `,
+    };
+
+    // Send email to patient
+    console.log(`Sending ${status} notification to patient: ${patient.email}`);
+    await transporter.sendMail(patientMailOptions);
+    console.log('✅ Patient status update email sent successfully');
+
+    return {
+      success: true,
+      message: `Appointment ${status} notification sent successfully`,
+      recipient: patient.email
+    };
+  } catch (error) {
+    console.error('❌ Error sending appointment status update emails:', error);
+    throw new Error(`Failed to send appointment status update emails: ${error.message}`);
+  }
 };
 
 // Test email connection
 export const testEmailConnection = async () => {
-    try {
-        const transporter = createTransporter();
-        await transporter.verify();
-        return { success: true, message: 'Email connection verified' };
-    } catch (error) {
-        console.error('Email connection test failed:', error);
-        return { success: false, message: 'Email connection failed', error: error.message };
-    }
+  try {
+    const transporter = createTransporter();
+    await transporter.verify();
+    return { success: true, message: 'Email connection verified' };
+  } catch (error) {
+    console.error('Email connection test failed:', error);
+    return { success: false, message: 'Email connection failed', error: error.message };
+  }
 };
